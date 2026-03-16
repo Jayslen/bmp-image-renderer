@@ -3,6 +3,21 @@ use std::{
     io::{BufReader, Read},
 };
 
+struct BMP {
+    size: usize,
+    starting_adress: usize,
+}
+
+impl BMP {
+    fn get_size(&self) -> String {
+        if self.size >= 1_048_576 {
+            return format!("{:.1} MB", self.size as f64 / 1_048_576_f64);
+        } else {
+            return format!("{:.1} KB", self.size as f64 / 1024_f64);
+        }
+    }
+}
+
 fn main() {
     let file = File::open("./test_images/sample_640×426.bmp").unwrap();
 
@@ -25,14 +40,12 @@ fn main() {
         .read_exact(&mut bmp_header[2..])
         .expect("Error while reading the header");
 
-    // get size of image
-    let bytes_size = u32::from_le_bytes(bmp_header[2..6].try_into().unwrap());
-    let file_size;
+    let image: BMP = BMP {
+        size: u32::from_le_bytes(bmp_header[2..6].try_into().unwrap()) as usize,
+        starting_adress: u32::from_le_bytes(bmp_header[10..].try_into().unwrap()) as usize,
+    };
 
-    if bytes_size >= 1_048_576 {
-        file_size = format!("{:.1} MB", bytes_size as f64 / 1_048_576_f64);
-    } else {
-        file_size = format!("{:.1} KB", bytes_size as f64 / 1024_f64);
-    }
-    println!("{:}", file_size)
+    println!("Size of image: {}", image.get_size());
+    println!("Starting address of image data: {}", image.starting_adress);
+    // get size of image
 }
