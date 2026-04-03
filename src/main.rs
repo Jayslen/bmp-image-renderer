@@ -1,4 +1,5 @@
 use std::{
+    env::args,
     fs::File,
     io::{BufReader, Read, Seek, SeekFrom},
 };
@@ -9,7 +10,6 @@ struct BMP {
     width: u32,
     height: u32,
     bits_per_pixel: u16,
-    pixels_size: u32,
 }
 
 impl BMP {
@@ -28,13 +28,16 @@ impl BMP {
             width: read_le_bytes_u32(&dib_header[4..8]),
             height: read_le_bytes_u32(&dib_header[8..12]),
             bits_per_pixel: read_le_bytes_u16(&dib_header[14..16]),
-            pixels_size: read_le_bytes_u32(&dib_header[20..24]),
         }
     }
 }
 
 fn main() {
-    let file = File::open("./test_images/handcrafted_square.bmp").unwrap();
+    let args: Vec<String> = args().collect();
+    let image_path = &args[1];
+
+    let file = File::open(image_path)
+        .expect("Something went wrong parsing the file. Verify is the file specify exist");
 
     // read the first two bytes of the file to verify if its a bmp image
     // The first 2 must be "BM" for a bmp image
@@ -58,14 +61,13 @@ fn main() {
 
     let image = BMP::init_info(&bmp_header, &bitmap_info_header_buffer);
 
-    buffer_reader.seek(SeekFrom::Start((image.starting_adress as u64)));
-
     let row_size = (image.bits_per_pixel as u32 * image.width + 31) / 32 * 4;
 
     for row in (1..=image.height).rev() {
         let row_to_print = (row * row_size) - row_size + image.starting_adress;
-        // println!("{}", row_to_print);
-        buffer_reader.seek(SeekFrom::Start((row_to_print as u64)));
+        buffer_reader
+            .seek(SeekFrom::Start(row_to_print as u64))
+            .unwrap();
         for _ in 0..image.width {
             let mut pixels: [u8; 3] = [0; 3];
             buffer_reader.read_exact(&mut pixels).unwrap();
@@ -83,6 +85,7 @@ fn main() {
 
         print!("\n");
     }
+    println!("Image size: {}", image.get_size());
 }
 
 fn read_le_bytes_u32(buffer: &[u8]) -> u32 {
