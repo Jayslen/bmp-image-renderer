@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, Read},
+    io::{BufReader, Read, Seek, SeekFrom},
 };
 
 struct BMP {
@@ -32,7 +32,7 @@ impl BMP {
 }
 
 fn main() {
-    let file = File::open("./test_images/square.bmp").unwrap();
+    let file = File::open("./test_images/handcrafted_square.bmp").unwrap();
 
     // read the first two bytes of the file to verify if its a bmp image
     // The first 2 must be "BM" for a bmp image
@@ -55,6 +55,29 @@ fn main() {
         .expect("Errors while reading dib header");
 
     let image = BMP::init_info(&bmp_header, &bitmap_info_header_buffer);
+
+    buffer_reader.seek(SeekFrom::Start((image.starting_adress as u64)));
+
+    let row_size = (image.bits_per_pixel as u32 * image.width + 31) / 32 * 4;
+
+    for _ in 0..image.height {
+        for _ in 0..image.width {
+            let mut pixels: [u8; 3] = [0; 3];
+            buffer_reader.read_exact(&mut pixels).unwrap();
+
+            print!(
+                "\x1b[48;2;{};{};{}m  \x1b[0m",
+                pixels[2], pixels[1], pixels[0]
+            );
+        }
+
+        // skip padding
+        let padding = row_size as usize - (image.width as usize * 3);
+        let mut padding_bytes = vec![0u8; padding];
+        buffer_reader.read_exact(&mut padding_bytes).unwrap();
+
+        print!("\n");
+    }
 }
 
 fn read_le_bytes_u32(buffer: &[u8]) -> u32 {
