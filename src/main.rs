@@ -9,6 +9,7 @@ struct BMP {
     width: u32,
     height: u32,
     bits_per_pixel: u16,
+    pixels_size: u32,
 }
 
 impl BMP {
@@ -27,6 +28,7 @@ impl BMP {
             width: read_le_bytes_u32(&dib_header[4..8]),
             height: read_le_bytes_u32(&dib_header[8..12]),
             bits_per_pixel: read_le_bytes_u16(&dib_header[14..16]),
+            pixels_size: read_le_bytes_u32(&dib_header[20..24]),
         }
     }
 }
@@ -60,7 +62,10 @@ fn main() {
 
     let row_size = (image.bits_per_pixel as u32 * image.width + 31) / 32 * 4;
 
-    for _ in 0..image.height {
+    for row in (1..=image.height).rev() {
+        let row_to_print = (row * row_size) - row_size + image.starting_adress;
+        // println!("{}", row_to_print);
+        buffer_reader.seek(SeekFrom::Start((row_to_print as u64)));
         for _ in 0..image.width {
             let mut pixels: [u8; 3] = [0; 3];
             buffer_reader.read_exact(&mut pixels).unwrap();
