@@ -26,4 +26,5 @@ There are a folder inside the project call "test_image" where you can find image
 ## Resources that helped me?
 
 [Making .BMP images from scratch by Kay Lack](https://www.youtube.com/watch?v=13E0il2zxBA&t)
+
 [BMP file format - Wikipedia](https://en.wikipedia.org/wiki/BMP_file_format)
