@@ -1,14 +1,14 @@
 use std::{
     fs::File,
-    io::{BufReader, Read, Seek, SeekFrom},
+    io::{BufReader, Error, ErrorKind, Read, Seek, SeekFrom},
 };
 
 pub struct BMP {
     size: u32,
-    starting_adress: u32,
     width: u32,
     height: u32,
     bits_per_pixel: u16,
+    compresion: u32,
     pixel_array: Vec<u8>,
 }
 
@@ -24,10 +24,10 @@ impl BMP {
     fn new(bmp_header: &[u8; 14], dib_header: &[u8; 40], pixel_array: Vec<u8>) -> BMP {
         BMP {
             size: read_le_bytes_u32(&bmp_header[2..6]),
-            starting_adress: read_le_bytes_u32(&bmp_header[10..]),
             width: read_le_bytes_u32(&dib_header[4..8]),
             height: read_le_bytes_u32(&dib_header[8..12]),
             bits_per_pixel: read_le_bytes_u16(&dib_header[14..16]),
+            compresion: read_le_bytes_u32(&dib_header[16..20]),
             pixel_array,
         }
     }
@@ -45,7 +45,7 @@ impl BMP {
     }
 }
 
-pub fn parse_image(path: &String) -> Result<BMP, ()> {
+pub fn parse_image(path: &String) -> Result<BMP, Error> {
     let file = File::open(path)
         .expect("Something went wrong parsing the file. Verify is the file specify exist");
 
@@ -54,32 +54,35 @@ pub fn parse_image(path: &String) -> Result<BMP, ()> {
     let mut buffer_reader = BufReader::new(file);
     let mut bmp_header: [u8; 14] = [0; 14];
 
-    buffer_reader
-        .read_exact(&mut bmp_header)
-        .expect("Error while reading the header");
+    buffer_reader.read_exact(&mut bmp_header)?;
 
-    let signature_chars = str::from_utf8(&bmp_header[..2]).unwrap();
+    let signature_chars = str::from_utf8(&bmp_header[..2]).inspect_err(|e| eprintln!("{:}", Error::new(ErrorKind::InvalidData, format!("Something went wrong parsing the file. Verify is the file specify exist. {:?}", e)))).unwrap();
 
     if signature_chars != "BM" {
-        panic!("This is not a bmp image")
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "This is not a bmp image",
+        ));
     }
 
     let mut bitmap_info_header_buffer: [u8; 40] = [0; 40];
-    buffer_reader
-        .read_exact(&mut bitmap_info_header_buffer)
-        .expect("Errors while reading dib header");
+    buffer_reader.read_exact(&mut bitmap_info_header_buffer)?;
 
     let mut pixels: Vec<u8> = Vec::new();
 
     let starting_adress = read_le_bytes_u32(&bmp_header[10..]);
 
-    buffer_reader
-        .seek(SeekFrom::Start(starting_adress as u64))
-        .unwrap();
-
-    buffer_reader.read_to_end(&mut pixels).unwrap();
+    buffer_reader.seek(SeekFrom::Start(starting_adress as u64))?;
+    buffer_reader.read_to_end(&mut pixels)?;
 
     let image = BMP::new(&bmp_header, &bitmap_info_header_buffer, pixels);
+
+    if image.compresion == 0 {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "This image is compressed, this library only support uncompressed images",
+        ));
+    }
 
     Ok(image)
 }
