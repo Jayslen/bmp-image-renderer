@@ -9,6 +9,7 @@ pub struct BMP {
     height: u32,
     bits_per_pixel: u16,
     compresion: u32,
+    color_palette: u32,
     pixel_array: Vec<u8>,
 }
 
@@ -28,6 +29,7 @@ impl BMP {
             height: read_le_bytes_u32(&dib_header[8..12]),
             bits_per_pixel: read_le_bytes_u16(&dib_header[14..16]),
             compresion: read_le_bytes_u32(&dib_header[16..20]),
+            color_palette: read_le_bytes_u32(&dib_header[32..36]),
             pixel_array,
         }
     }
@@ -77,10 +79,30 @@ pub fn parse_image(path: &String) -> Result<BMP, Error> {
 
     let image = BMP::new(&bmp_header, &bitmap_info_header_buffer, pixels);
 
-    if image.compresion == 0 {
+    println!("Bits per pixels {}", image.bits_per_pixel);
+    println!("Starting adress {}", starting_adress);
+    println!("Compresion {}", image.compresion);
+    println!("Width {}", image.width);
+    println!("Height {}", image.height);
+    println!("Size {}", image.get_size());
+    println!("Color palette {}", image.color_palette);
+
+    let pixels_available: [u16; 6] = [1, 4, 8, 16, 24, 32];
+
+    if image.compresion != 0 {
         return Err(Error::new(
             ErrorKind::InvalidData,
             "This image is compressed, this library only support uncompressed images",
+        ));
+    }
+
+    if !pixels_available.contains(&image.bits_per_pixel) {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!(
+                "This image has {} bits per pixel, this library only support 1, 4, 8, 16, 24 and 32 bits per pixel",
+                image.bits_per_pixel
+            ),
         ));
     }
 
