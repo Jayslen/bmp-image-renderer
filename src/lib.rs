@@ -9,7 +9,7 @@ pub struct BMP {
     height: u32,
     bits_per_pixel: u16,
     compresion: u32,
-    color_palette: u32,
+    color_palette: Vec<[u8; 4]>,
     pixel_array: Vec<u8>,
 }
 
@@ -22,14 +22,19 @@ impl BMP {
         }
     }
 
-    fn new(bmp_header: &[u8; 14], dib_header: &[u8; 40], pixel_array: Vec<u8>) -> BMP {
+    fn new(
+        bmp_header: &[u8; 14],
+        dib_header: &[u8; 40],
+        pixel_array: Vec<u8>,
+        color_palette: Vec<[u8; 4]>,
+    ) -> BMP {
         BMP {
             size: read_le_bytes_u32(&bmp_header[2..6]),
             width: read_le_bytes_u32(&dib_header[4..8]),
             height: read_le_bytes_u32(&dib_header[8..12]),
             bits_per_pixel: read_le_bytes_u16(&dib_header[14..16]),
             compresion: read_le_bytes_u32(&dib_header[16..20]),
-            color_palette: read_le_bytes_u32(&dib_header[32..36]),
+            color_palette,
             pixel_array,
         }
     }
@@ -44,6 +49,9 @@ impl BMP {
     }
     pub fn pixel_array(&self) -> &Vec<u8> {
         &self.pixel_array
+    }
+    pub fn color_palette(&self) -> &Vec<[u8; 4]> {
+        &self.color_palette
     }
 }
 
@@ -72,20 +80,35 @@ pub fn parse_image(path: &String) -> Result<BMP, Error> {
 
     let mut pixels: Vec<u8> = Vec::new();
 
-    let starting_adress = read_le_bytes_u32(&bmp_header[10..]);
+    let pixels_adress = read_le_bytes_u32(&bmp_header[10..]);
 
-    buffer_reader.seek(SeekFrom::Start(starting_adress as u64))?;
+    let palette_address = 14 + 40;
+    let palette_size = pixels_adress - palette_address;
+    let mut color_palette_buffer: Vec<u8> = vec![0; palette_size as usize];
+
+    // read color palette
+    // buffer_reader.seek(SeekFrom::Start(palette_address as u64))?;
+    buffer_reader.read(&mut color_palette_buffer)?;
+
+    let mut palette: Vec<[u8; 4]> = Vec::new();
+
+    color_palette_buffer.chunks(4).for_each(|cp| {
+        palette.push(cp.try_into().unwrap());
+    });
+
+    // println!("Color palette: {:?}", palettes);
+
+    buffer_reader.seek(SeekFrom::Start(pixels_adress as u64))?;
     buffer_reader.read_to_end(&mut pixels)?;
 
-    let image = BMP::new(&bmp_header, &bitmap_info_header_buffer, pixels);
+    let image = BMP::new(&bmp_header, &bitmap_info_header_buffer, pixels, palette);
 
     println!("Bits per pixels {}", image.bits_per_pixel);
-    println!("Starting adress {}", starting_adress);
+    println!("Starting adress {}", pixels_adress);
     println!("Compresion {}", image.compresion);
     println!("Width {}", image.width);
     println!("Height {}", image.height);
     println!("Size {}", image.get_size());
-    println!("Color palette {}", image.color_palette);
 
     let pixels_available: [u16; 6] = [1, 4, 8, 16, 24, 32];
 
