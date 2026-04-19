@@ -96,8 +96,6 @@ pub fn parse_image(path: &String) -> Result<BMP, Error> {
         palette.push(cp.try_into().unwrap());
     });
 
-    // println!("Color palette: {:?}", palettes);
-
     buffer_reader.seek(SeekFrom::Start(pixels_adress as u64))?;
     buffer_reader.read_to_end(&mut pixels)?;
 
