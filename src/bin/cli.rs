@@ -38,6 +38,27 @@ fn render(image: &BMP) {
         }
     }
 
+    if bits == 16 {
+        let bytes_per_pixel = bits as u32 / 8;
+
+        for row in (0..height).rev() {
+            let start = (row_size * row) as usize;
+            let end = start + bytes_per_row_pixels as usize;
+
+            for p in (start..end).step_by(bytes_per_pixel as usize) {
+                let low = pixel_array[p] as u16;
+                let high = pixel_array[p + 1] as u16;
+                let pixel = (high << 8) | low;
+                let r = pixel >> 10 & 0x1F;
+                let g = pixel >> 5 & 0x1F;
+                let b = pixel & 0x1F;
+
+                print_color(r as u8, g as u8, b as u8);
+            }
+            print!("\n");
+        }
+    }
+
     if bits == 4 || bits == 1 || bits == 8 {
         let palette = image.color_palette();
 
