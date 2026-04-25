@@ -49,10 +49,9 @@ fn render(image: &BMP) {
                 let low = pixel_array[p] as u16;
                 let high = pixel_array[p + 1] as u16;
                 let pixel = (high << 8) | low;
-                let r = pixel >> 10 & 0x1F;
-                let g = pixel >> 5 & 0x1F;
-                let b = pixel & 0x1F;
-
+                let r = ((pixel >> 10) & 0x1F) * 255 / 31;
+                let g = ((pixel >> 5) & 0x1F) * 255 / 31;
+                let b = (pixel & 0x1F) * 255 / 31;
                 print_color(r as u8, g as u8, b as u8);
             }
             print!("\n");
