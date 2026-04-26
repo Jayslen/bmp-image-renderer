@@ -1,13 +1,17 @@
-use bmp_renderer::{BMP, parse_image};
+use bmp_renderer::{BMP, parse_bmp};
 use std::env::args;
 
 fn main() {
     let args: Vec<String> = args().collect();
     let image_path = &args[1];
 
-    let image = parse_image(&image_path);
+    let image = parse_bmp(&image_path);
     match image {
         Ok(image) => {
+            println!("Bits per pixels {}", image.bits_per_pixel());
+            println!("Width {}", image.width());
+            println!("Height {}", image.height());
+            println!("Size {}", image.get_size());
             render(&image);
         }
         Err(e) => {
@@ -18,18 +22,16 @@ fn main() {
 
 fn render(image: &BMP) {
     let bits = image.bits_per_pixel();
-    let width = image.width();
     let height = image.height();
     let pixel_array = image.pixel_array();
-    let row_size = (bits as u32 * width + 31) / 32 * 4;
-    let bytes_per_row_pixels = (bits as u32 * width) / 8; // the actual size of the pixel data in each row, excluding padding
+    let row_pixel_size = image.row_pixel_size();
 
     if bits == 24 {
         let bytes_per_pixel = bits as u32 / 8;
 
-        for row in (0..height).rev() {
-            let start = (row_size * row) as usize;
-            let end = start + bytes_per_row_pixels as usize;
+        for row in 0..height {
+            let start = (row_pixel_size * row) as usize;
+            let end = start + row_pixel_size as usize;
 
             for p in (start..end).step_by(bytes_per_pixel as usize) {
                 print_color(pixel_array[p + 2], pixel_array[p + 1], pixel_array[p]);
@@ -41,9 +43,9 @@ fn render(image: &BMP) {
     if bits == 16 {
         let bytes_per_pixel = bits as u32 / 8;
 
-        for row in (0..height).rev() {
-            let start = (row_size * row) as usize;
-            let end = start + bytes_per_row_pixels as usize;
+        for row in 0..height {
+            let start = (row_pixel_size * row) as usize;
+            let end = start + row_pixel_size as usize;
 
             for p in (start..end).step_by(bytes_per_pixel as usize) {
                 let low = pixel_array[p] as u16;
@@ -60,10 +62,11 @@ fn render(image: &BMP) {
 
     if bits == 4 || bits == 1 || bits == 8 {
         let palette = image.color_palette();
+        println!("{:?}", palette);
 
-        for row in (0..height).rev() {
-            let start = (row_size * row) as usize;
-            let end = start + bytes_per_row_pixels as usize;
+        for row in 0..height {
+            let start = (row_pixel_size * row) as usize;
+            let end = start + row_pixel_size as usize;
 
             let mut mask = 0x1;
 
@@ -76,8 +79,10 @@ fn render(image: &BMP) {
             for p in start..end {
                 for bit in (0..8).step_by(bits as usize).rev() {
                     let pixel_value = (pixel_array[p] >> bit) & mask;
-                    let curr_palette = palette[pixel_value as usize];
-                    print_color(curr_palette[2], curr_palette[1], curr_palette[0]);
+                    if let Some(palette) = palette {
+                        let curr_palette = palette[pixel_value as usize];
+                        print_color(curr_palette[2], curr_palette[1], curr_palette[0]);
+                    }
                 }
             }
             print!("\n");
